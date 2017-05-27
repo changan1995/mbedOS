@@ -1,6 +1,8 @@
 /*
 this is for mbed os course connector part.
 */
+
+//1.	Initial the libraries and settings according to boards. See annotations.
 #define __STDC_FORMAT_MACROS
 #include "mbed.h"
 #include <string>//use string for blink pattern analysis
@@ -41,11 +43,6 @@ DigitalOut red_led(RED_LED);
 DigitalOut green_led(GREEN_LED);
 DigitalOut blue_led(BLUE_LED);
 
-//background blink
-Ticker status_ticker;
-void blinky() {
-    green_led = !green_led;
-}
 
 // These are example resource values for the Device Object
 struct MbedClientDevice device = {
@@ -60,19 +57,19 @@ MbedClient mbed_client(device);
 
 // In case of K64F board , there is button resource available
 // to change resource value and unregister
-#ifdef TARGET_K64F
+
 // Set up Hardware interrupt button.
 InterruptIn obs_button(SW2);
 InterruptIn unreg_button(SW3);
-#else
-//In non K64F boards , set up a timer to simulate updating resource,
-// there is no functionality to unregister.
-Ticker timer;
-#endif
 
-/*
- * Arguments for running "blink" in it's own thread.
- */
+//2.	Set a ticker and do the background blink.
+//background blink
+Ticker status_ticker;
+void blinky() {
+    green_led = !green_led;
+}
+
+//3.	Define the vector for recording blink pattern.
 class BlinkArgs {
 public:
     BlinkArgs() {
@@ -91,6 +88,7 @@ public:
  * When the function blink is executed, the pattern is read, and the LED
  * will blink based on the pattern.
  */
+ //4.	Define the LedResource class as a ObjectID, create resources.
 class LedResource {
 public:
     LedResource() {
@@ -126,6 +124,7 @@ public:
         return led_object;
     }
 
+//
     void blink(void *argument) {
         // read the value of 'Pattern'
         status_ticker.detach();
@@ -156,7 +155,7 @@ public:
                 blink_args->blink_pattern.push_back(atoi((const char*)s.c_str()));
             }
         }
-        // check if POST contains payload
+           // check if POST contains payload
         if (argument) {
             M2MResource::M2MExecuteParameter* param = (M2MResource::M2MExecuteParameter*)argument;
             String object_name = param->get_argument_object_name();
@@ -234,11 +233,9 @@ public:
 
             // up counter
             counter++;
-    #ifdef TARGET_K64F
+            
             printf("handle_button_click, new value of counter is %d\n", counter);
-    #else
-            printf("simulate button_click, new value of counter is %d\n", counter);
-    #endif
+  
             // serialize the value of counter as a string, and tell connector
             char buffer[20];
             int size = sprintf(buffer,"%d",counter);
@@ -253,6 +250,7 @@ private:
 };
 
 
+//6.	The main function parts. Set the Semaphore and thread, the button handle function.
 // Network interaction must be performed outside of interrupt context
 Semaphore updates(0);
 volatile bool registered = false;
@@ -268,8 +266,6 @@ void button_clicked() {
     clicked = true;
     updates.release();
 }
-
-
 
 // Entry point to the program
 int main() {
@@ -299,7 +295,7 @@ Add MBEDTLS_NO_DEFAULT_ENTROPY_SOURCES and MBEDTLS_TEST_NULL_ENTROPY in mbed_app
     blue_led = LED_OFF;
     status_ticker.attach_us(blinky, 250000);
 
-//network settings.
+//7.	The main function parts. Entropy security settings.
     // Keep track of the main thread
     mainThread = osThreadGetId();
     printf("\nStarting mbed Client example in ");
@@ -308,6 +304,7 @@ Add MBEDTLS_NO_DEFAULT_ENTROPY_SOURCES and MBEDTLS_TEST_NULL_ENTROPY in mbed_app
 #else
     printf("IPv4 mode\n");
 #endif
+
     mbed_trace_init();
     NetworkInterface* network = easy_connect(true);
     if(network == NULL) {
@@ -317,18 +314,16 @@ Add MBEDTLS_NO_DEFAULT_ENTROPY_SOURCES and MBEDTLS_TEST_NULL_ENTROPY in mbed_app
     // we create our button and LED resources
     ButtonResource button_resource;
     LedResource led_resource;
+ //   BigPayloadResource big_payload_resource;
 
-#ifdef TARGET_K64F
     // On press of SW3 button on K64F board, example application
     // will call unregister API towards mbed Device Connector
     //unreg_button.fall(&mbed_client,&MbedClient::test_unregister);
     unreg_button.fall(&unregister);
     // Observation Button (SW2) press will send update of endpoint resource values to connector
     obs_button.fall(&button_clicked);
-#else
-    // Send update of endpoint resource values to connector every 15 seconds periodically
-    timer.attach(&button_clicked, 15.0);
-#endif
+
+
     // Create endpoint interface to manage register and unregister
     mbed_client.create_interface(MBED_SERVER_ADDRESS, network);
     // Create Objects of varying types, see simpleclient.h for more details on implementation.
@@ -340,17 +335,16 @@ Add MBEDTLS_NO_DEFAULT_ENTROPY_SOURCES and MBEDTLS_TEST_NULL_ENTROPY in mbed_app
     object_list.push_back(device_object);
     object_list.push_back(button_resource.get_object());
     object_list.push_back(led_resource.get_object());
-    object_list.push_back(big_payload_resource.get_object());
+  //  object_list.push_back(big_payload_resource.get_object());
     //add accelerometer
-    object_list.push_back(acc_resource.get_object());
     // Set endpoint registration object
     mbed_client.set_register_object(register_object);
     // Register with mbed Device Connector
     mbed_client.test_register(register_object, object_list);
     registered = true;
-//network settings.
+//7.	The main function parts. Entropy security settings.END.
 
-//loop
+//8.	The main function parts. LOOP.
     while (true) {
         updates.wait(2500);
         if(registered) {
