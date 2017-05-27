@@ -10,8 +10,7 @@ DigitalOut led(LED1);
 volatile int press_times=0;
 
 //initial the InterruptIn class button, the pin as arguments varys from board to board.
-//InterruptIn button(USER_BUTTON);//for F401RE
-InterruptIn button(SW2);//for Freescale K64F
+InterruptIn button(USER_BUTTON);
 
 /*
 This is recommended to support Interrupt.
@@ -20,13 +19,11 @@ recommanded for handle button status rather than others.
 */
 Thread read_button;
 void press_handle(){
-//start a signal flag of 0x1.
     read_button.signal_set(0x1);
 }
 
 void press_read(){
     while(1){
-// wait until the signal flag of  0x1 is set.
         read_button.signal_wait(0x1);
         press_times++;
         printf("pressed %d times \n",press_times);
@@ -40,8 +37,6 @@ fall is the number funciton in the InterruptIn class, when triggerd by the fall 
 pin, it will turns to the function pointer as argument.
 */
     button.fall(&press_handle);
-
-//  Start A thread for reading the button status and handle it.   
     read_button.start(callback(press_read));
 //one can elaborate the serial ports with Serial class and identify the baud frequency, however the port pin should be specificed.
 //  Serial pc(USBTX,USBRX)
